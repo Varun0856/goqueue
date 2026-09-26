@@ -9,16 +9,16 @@ import (
 
 type Store struct {
 	mu   sync.RWMutex
-	jobs map[string]*job.Job
+	jobs map[string]job.Job
 }
 
 func NewStore() *Store {
 	return &Store{
-		jobs: make(map[string]*job.Job),
+		jobs: make(map[string]job.Job),
 	}
 }
 
-func (s *Store) Create(j *job.Job) {
+func (s *Store) Create(j job.Job) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -33,7 +33,7 @@ func (s *Store) Get(id string) (job.Job, error) {
 	if !ok {
 		return job.Job{}, errors.New("job not found")
 	}
-	return *existingJob, nil
+	return existingJob, nil
 }
 
 func (s *Store) Update(j job.Job) error {
@@ -45,6 +45,6 @@ func (s *Store) Update(j job.Job) error {
 		return errors.New("job not found")
 	}
 
-	s.jobs[j.ID] = &j
+	s.jobs[j.ID] = j
 	return nil
 }

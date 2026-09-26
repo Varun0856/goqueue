@@ -17,7 +17,7 @@ func TestCreateAndGet(t *testing.T) {
 	}
 
 	// Store the job in Store
-	s.Create(newJob)
+	s.Create(*newJob)
 
 	// Retrieve the stored job
 	storedJob, err := s.Get(newJob.ID)
@@ -50,7 +50,7 @@ func TestUpdate(t *testing.T) {
 		t.Fatalf("error while creating new job: %v", err)
 	}
 
-	s.Create(newJob)
+	s.Create(*newJob)
 
 	storedJob, err := s.Get(newJob.ID)
 	if err != nil {
@@ -108,7 +108,7 @@ func TestGetCopy(t *testing.T) {
 		t.Fatalf("error while creating a new job: %v", err)
 	}
 
-	s.Create(newJob)
+	s.Create(*newJob)
 
 	storedJob, err := s.Get(newJob.ID)
 	if err != nil {

@@ -19,7 +19,7 @@ type Job struct {
 	Type    string
 	Payload string
 	Status  JobStatus
-	Result  *string
+	Result  string
 	Error   string
 }
 

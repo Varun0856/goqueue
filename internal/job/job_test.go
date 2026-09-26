@@ -100,8 +100,8 @@ func TestNewJobCreation(t *testing.T) {
 				t.Errorf("expected a non empty job id")
 			}
 
-			if job.Result != nil {
-				t.Errorf("expected job result to be nil at creation but got %q", *job.Result)
+			if job.Result != "" {
+				t.Errorf("expected job result to be nil at creation but got %q", job.Result)
 			}
 
 			if job.Error != "" {
