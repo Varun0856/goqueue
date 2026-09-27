@@ -110,3 +110,26 @@ func TestGetJob(t *testing.T) {
 		t.Errorf("expected status %q, got %q", job.Queued, got.Status)
 	}
 }
+
+func TestCreateJob_InvalidJson(t *testing.T) {
+	s := store.NewStore()
+
+	pool := worker.NewPool(3, 10, s)
+	pool.Start()
+	defer pool.Stop()
+
+	handler := NewHandler(pool, s)
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/jobs",
+		strings.NewReader(`{"type":`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+
+	rec := httptest.NewRecorder()
+	handler.CreateJob(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected code %d, got %d", http.StatusBadRequest, rec.Code)
+	}
+}

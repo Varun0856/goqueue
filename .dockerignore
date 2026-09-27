@@ -1,0 +1,60 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+secrets/
+credentials/
+
+# Go build artifacts
+bin/
+dist/
+build/
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+goqueue-cli/
+
+# Test and coverage files
+coverage/
+coverage.out
+coverage.html
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Docker files (optional)
+docker-compose*.yml
+.dockerignore
+
+# Documentation (optional)
+README*
+LICENSE*
+CHANGELOG*
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+
+# Node.js (if your project has a frontend)
+node_modules/
