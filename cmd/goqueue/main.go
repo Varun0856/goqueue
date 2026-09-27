@@ -18,6 +18,12 @@ import (
 func main() {
 	s := store.NewStore()
 
+	if err := s.LoadFromFile("data/jobs.json"); err != nil {
+		log.Fatalf("failed to load jobs: %v", err)
+	}
+
+	s.RecoverJob()
+
 	pool := worker.NewPool(4, 100, s)
 	pool.Start()
 
@@ -65,6 +71,9 @@ func main() {
 	}
 
 	pool.Stop()
+	if err := s.SaveToFile("data/jobs.json"); err != nil {
+		log.Printf("failed to save jobs: %v", err)
+	}
 	log.Println("Goqueue stopped")
 
 }

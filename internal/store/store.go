@@ -1,7 +1,9 @@
 package store
 
 import (
+	"encoding/json"
 	"errors"
+	"os"
 	"sync"
 
 	"github.com/Varun0856/goqueue/internal/job"
@@ -47,4 +49,57 @@ func (s *Store) Update(j job.Job) error {
 
 	s.jobs[j.ID] = j
 	return nil
+}
+
+func (s *Store) SaveToFile(path string) error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	data, err := json.MarshalIndent(s.jobs, "", " ")
+	if err != nil {
+		return err
+	}
+
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Store) LoadFromFile(path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	var jobs map[string]job.Job
+
+	if err := json.Unmarshal(data, &jobs); err != nil {
+		return err
+	}
+
+	if jobs == nil {
+		jobs = make(map[string]job.Job)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.jobs = jobs
+	return nil
+}
+
+func (s *Store) RecoverJob() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for id, j := range s.jobs {
+		if j.Status == job.Running {
+			j.Status = job.Queued
+			s.jobs[id] = j
+		}
+	}
 }
