@@ -133,3 +133,83 @@ func TestCreateJob_InvalidJson(t *testing.T) {
 		t.Errorf("expected code %d, got %d", http.StatusBadRequest, rec.Code)
 	}
 }
+
+func TestListJobs_Empty(t *testing.T) {
+	s := store.NewStore()
+	pool := worker.NewPool(2, 10, s)
+	pool.Start()
+	defer pool.Stop()
+
+	handler := NewHandler(pool, s)
+
+	req := httptest.NewRequest(http.MethodGet, "/jobs", nil)
+	rec := httptest.NewRecorder()
+
+	handler.ListJobs(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
+	}
+
+	if ct := rec.Header().Get("Content-Type"); ct != "application/json" {
+		t.Errorf("expected Content-Type application/json, got %s", ct)
+	}
+
+	var got []job.Job
+	if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if len(got) != 0 {
+		t.Errorf("expected 0 jobs, got %d", len(got))
+	}
+}
+
+func TestListJobs(t *testing.T) {
+	s := store.NewStore()
+
+	pool := worker.NewPool(2, 10, s)
+	pool.Start()
+	defer pool.Stop()
+
+	want := make(map[string]bool)
+	for _, payload := range []string{"hello", "world", "foo", "bar"} {
+		j, err := job.New("uppercase", payload)
+		if err != nil {
+			t.Fatalf("failed to create job: %v", err)
+		}
+		s.Create(*j)
+		want[j.ID] = true
+	}
+
+	handler := NewHandler(pool, s)
+
+	req := httptest.NewRequest(http.MethodGet, "/jobs", nil)
+	rec := httptest.NewRecorder()
+
+	handler.ListJobs(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rec.Code)
+	}
+
+	var got []job.Job
+	if err := json.NewDecoder(rec.Body).Decode(&got); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if len(got) != len(want) {
+		t.Fatalf("expected %d jobs, got %d", len(want), len(got))
+	}
+
+	for _, j := range got {
+		if !want[j.ID] {
+			t.Errorf("unexpected job ID %q", j.ID)
+		}
+		delete(want, j.ID)
+	}
+
+	if len(want) != 0 {
+		t.Errorf("some jobs were not returned: %v", want)
+	}
+}

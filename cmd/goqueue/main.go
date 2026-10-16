@@ -32,6 +32,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /jobs", handler.CreateJob)
 	mux.HandleFunc("GET /jobs/{id}", handler.GetJob)
+	mux.HandleFunc("GET /jobs", handler.ListJobs)
 
 	server := &http.Server{
 		Addr:    ":8080",

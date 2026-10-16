@@ -51,6 +51,17 @@ func (s *Store) Update(j job.Job) error {
 	return nil
 }
 
+func (s *Store) List() []job.Job {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	jobs := make([]job.Job, 0, len(s.jobs))
+	for _, j := range s.jobs {
+		jobs = append(jobs, j)
+	}
+	return jobs
+}
+
 func (s *Store) SaveToFile(path string) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

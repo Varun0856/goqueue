@@ -31,3 +31,5 @@ go.work.sum
 .DS_Store
 data/jobs.json
 /goqueue-cli
+/goqueue
+/goqueue-tui

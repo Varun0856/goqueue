@@ -72,3 +72,13 @@ func (h *Handler) GetJob(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(j)
 }
+
+func (h *Handler) ListJobs(w http.ResponseWriter, r *http.Request) {
+	jobs := h.store.List()
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	if err := json.NewEncoder(w).Encode(jobs); err != nil {
+		return
+	}
+}

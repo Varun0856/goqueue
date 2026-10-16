@@ -1,65 +1,102 @@
 # GoQueue
 
-**A concurrent background job processing service written in Go.**
+**A concurrent background job processing service built with Go.**
 
-GoQueue is a lightweight background job processing system that accepts jobs through an HTTP API, executes them using a fixed-size worker pool, and stores job state in a concurrency-safe in-memory store with JSON snapshot persistence.
+GoQueue is a lightweight background job processing system that accepts jobs over HTTP and executes them using a fixed-size worker pool. It provides a concurrency-safe in-memory job store, job lifecycle tracking, a CLI client, and a full-screen terminal UI.
 
-It supports job submission, status tracking, graceful shutdown, and recovery of interrupted jobs. It can run locally or inside a Docker container.
-
----
+GoQueue supports JSON snapshot persistence, recovery of interrupted jobs after a restart, and graceful shutdown. It can run locally or in Docker.
 
 ## Features
 
-- **Concurrent job processing** using a fixed-size worker pool.
-- **Thread-safe in-memory storage** protected by mutexes.
-- **Job lifecycle management** with validated state transitions.
-- **HTTP API** for submitting jobs and retrieving their status.
-- **Job execution** supporting `uppercase` and `reverse` operations.
-- **JSON snapshot persistence** for saving and loading job data.
-- **Recovery** that requeues jobs left in the `running` state after a restart.
-- **Graceful shutdown** that stops the HTTP server, drains the worker pool, and saves job state.
-- **CLI client** for submitting jobs and retrieving their status.
-- **Docker support** using a multi-stage build and a non-root runtime user.
-- **Makefile** for common development, testing, and Docker commands.
-- **GitHub Actions CI** for automated build, testing, static analysis, and formatting checks.
-
----
+- **Concurrent execution** — process jobs using a fixed-size worker pool and buffered job queue.
+- **Thread-safe storage** — protect shared job state using Go synchronization primitives.
+- **Job lifecycle management** — track jobs through queued, running, completed, and failed states.
+- **HTTP API** — submit jobs, retrieve individual jobs, and list jobs.
+- **Job execution** — support `uppercase` and `reverse` operations.
+- **Snapshot persistence** — save and load job state using JSON snapshots.
+- **Interrupted-job recovery** — requeue jobs that were left running when the service stopped.
+- **Graceful shutdown** — shut down the HTTP server, stop the worker pool, and persist job state.
+- **CLI client** — submit jobs and retrieve their status from the terminal.
+- **Terminal UI** — interact with the job queue through a full-screen Bubble Tea interface.
+- **Docker support** — use a multi-stage build, a non-root runtime user, and a named volume for persistent data.
+- **Automated checks** — run tests, race detection, static analysis, and formatting checks through development tools and GitHub Actions.
 
 ## Tech Stack
 
-- Go
-- Standard library (`net/http`, `sync`, `encoding/json`, `os`, etc.)
-- UUID generation with `github.com/google/uuid`
-- Docker
-- GitHub Actions
+| Technology               | Purpose                             |
+| ------------------------ | ----------------------------------- |
+| Go                       | Core implementation and concurrency |
+| `net/http`               | HTTP API                            |
+| `sync`                   | Thread-safe shared state            |
+| `encoding/json`          | API serialization and persistence   |
+| `github.com/google/uuid` | Job identifiers                     |
+| Bubble Tea               | Terminal UI framework               |
+| Bubbles                  | Terminal input components           |
+| Lip Gloss                | Terminal styling                    |
+| Docker                   | Containerization                    |
+| GitHub Actions           | Continuous integration              |
 
----
+## Architecture
+
+```text
+                  ┌─────────────────────┐
+                  │      Clients        │
+                  │                     │
+                  │  CLI  │  Terminal UI│
+                  └──────────┬──────────┘
+                             │ HTTP
+                  ┌──────────▼──────────┐
+                  │      HTTP API       │
+                  │ Submit / Get / List │
+                  └──────────┬──────────┘
+                             │
+                  ┌──────────▼──────────┐
+                  │     Job Store       │
+                  │  Thread-safe state  │
+                  └──────────┬──────────┘
+                             │
+                  ┌──────────▼──────────┐
+                  │   Worker Pool       │
+                  │  Fixed concurrency  │
+                  └──────────┬──────────┘
+                             │
+                  ┌──────────▼──────────┐
+                  │   Job Execution     │
+                  │ Uppercase / Reverse │
+                  └─────────────────────┘
+```
+
+The HTTP API accepts job requests and delegates them to the worker system. Workers execute supported operations and update the job's state in the store. Clients can query the API to inspect job progress and results.
+
+The store can save a JSON snapshot during shutdown and restore saved jobs when the server starts again.
 
 ## Project Structure
 
 ```text
-.
-├── .github
-│   └── workflows
+goqueue/
+├── .github/
+│   └── workflows/
 │       └── ci.yml
-├── cmd
-│   ├── goqueue
+├── cmd/
+│   ├── goqueue/
 │   │   └── main.go
-│   └── goqueue-cli
+│   ├── goqueue-cli/
+│   │   └── main.go
+│   └── goqueue-tui/
 │       └── main.go
-├── data
+├── data/
 │   └── jobs.json
-├── internal
-│   ├── api
+├── internal/
+│   ├── api/
 │   │   ├── handler.go
 │   │   └── handler_test.go
-│   ├── job
+│   ├── job/
 │   │   ├── job.go
 │   │   └── job_test.go
-│   ├── store
+│   ├── store/
 │   │   ├── store.go
 │   │   └── store_test.go
-│   └── worker
+│   └── worker/
 │       ├── execute.go
 │       ├── execute_test.go
 │       ├── pool.go
@@ -74,15 +111,16 @@ It supports job submission, status tracking, graceful shutdown, and recovery of 
 └── README.md
 ```
 
----
+The `data/jobs.json` file is the snapshot location used by the application. Depending on your repository setup, it may be generated at runtime rather than committed to Git.
 
 ## Getting Started
 
 ### Prerequisites
 
-- Go 1.26.1 or later
+- Go version required by `go.mod`
 - Git
-- Make (for Makefile commands)
+- GNU Make, for Makefile commands
+- Docker, if you want to run the containerized version
 
 ### Clone the repository
 
@@ -91,46 +129,49 @@ git clone https://github.com/Varun0856/goqueue.git
 cd goqueue
 ```
 
-### Build the server and CLI
+### Build the applications
 
 ```bash
 make build
 ```
 
-This builds two binaries:
+This produces three binaries:
 
-- `goqueue` — the HTTP server.
-- `goqueue-cli` — the command-line client.
+| Binary        | Purpose                        |
+| ------------- | ------------------------------ |
+| `goqueue`     | HTTP server                    |
+| `goqueue-cli` | Command-line client            |
+| `goqueue-tui` | Full-screen terminal interface |
 
-### Run the server
+### Start the server
 
 ```bash
 make run
 ```
 
-Alternatively, run the server directly:
+Alternatively:
 
 ```bash
 go run ./cmd/goqueue
 ```
 
-The server listens on:
+The server listens on `http://localhost:8080`.
 
-```text
-http://localhost:8080
-```
+Keep the server running while using the CLI or TUI.
 
----
+## HTTP API
 
-## API Reference
+The API exposes three endpoints.
 
-### 1. Submit a Job
+| Method | Endpoint     | Description          |
+| ------ | ------------ | -------------------- |
+| `POST` | `/jobs`      | Submit a new job     |
+| `GET`  | `/jobs`      | List jobs            |
+| `GET`  | `/jobs/{id}` | Retrieve a job by ID |
+
+### 1. Submit a job
 
 **Endpoint:** `POST /jobs`
-
-Submit a job by providing its type and payload.
-
-**Request:**
 
 ```bash
 curl -X POST http://localhost:8080/jobs \
@@ -138,7 +179,7 @@ curl -X POST http://localhost:8080/jobs \
   -d '{"type":"uppercase","payload":"hello world"}'
 ```
 
-**Example response:**
+Example response:
 
 ```json
 {
@@ -147,19 +188,27 @@ curl -X POST http://localhost:8080/jobs \
 }
 ```
 
-The response contains the generated job ID and its initial status.
+The server generates a job ID and returns the initial status. A job may be picked up by a worker before the client makes its next request.
 
-### 2. Get Job Status
+### 2. List jobs
+
+**Endpoint:** `GET /jobs`
+
+```bash
+curl http://localhost:8080/jobs
+```
+
+This endpoint returns the collection of jobs available through the API, allowing clients to inspect the queue without knowing individual job IDs.
+
+### 3. Retrieve a job
 
 **Endpoint:** `GET /jobs/{id}`
-
-Retrieve the current state and result of a job.
 
 ```bash
 curl http://localhost:8080/jobs/d041e442-e7a5-45a8-ae1e-e3fc9811d8ea
 ```
 
-**Example response:**
+Example response:
 
 ```json
 {
@@ -172,98 +221,116 @@ curl http://localhost:8080/jobs/d041e442-e7a5-45a8-ae1e-e3fc9811d8ea
 }
 ```
 
-The job's status may initially be `queued` or `running` before reaching a terminal state.
+The response reflects the job state at the time of the request. A job may still be queued or running, so poll again if you need its final result.
 
-### Job Types
+### Supported job types
 
-| Type        | Description                       | Example result |
-| ----------- | --------------------------------- | -------------- |
-| `uppercase` | Converts the payload to uppercase | `HELLO WORLD`  |
-| `reverse`   | Reverses the payload              | `dlrow olleh`  |
+| Type        | Behavior                   | Example input | Example output |
+| ----------- | -------------------------- | ------------- | -------------- |
+| `uppercase` | Converts text to uppercase | `hello world` | `HELLO WORLD`  |
+| `reverse`   | Reverses the input string  | `hello world` | `dlrow olleh`  |
 
-### Job Lifecycle
+### Job lifecycle
 
 ```text
-Queued → Running → Completed
-                  ↘ Failed
+Queued ──► Running ──► Completed
+                    └► Failed
 ```
 
-Jobs begin in the `queued` state, transition to `running` when a worker picks them up, and finish as either `completed` or `failed`.
-
----
+Jobs enter the queue, are picked up by a worker, and eventually reach a terminal state. The store tracks their current status, payload, result, and error information.
 
 ## CLI Client
 
-GoQueue includes a command-line client for interacting with the HTTP API.
+The CLI lets you submit jobs and retrieve their state without using `curl` directly.
 
-The CLI connects to the GoQueue server running at `localhost:8080`.
+### Submit a job
 
-### Build the CLI
-
-```bash
-make build
-```
-
-Alternatively:
-
-```bash
-go build -o goqueue-cli ./cmd/goqueue-cli
-```
-
-### Submit a Job
-
-Using the Makefile:
+Using Make:
 
 ```bash
 make run-cli ARGS='submit uppercase "hello world"'
 ```
 
-Or run the binary directly:
+Or using the compiled binary:
 
 ```bash
 ./goqueue-cli submit uppercase "hello world"
 ```
 
-### Retrieve a Job
-
-Using the Makefile:
-
-```bash
-make run-cli ARGS='get <job-id>'
-```
-
-Or run the binary directly:
+### Retrieve a job
 
 ```bash
 ./goqueue-cli get <job-id>
 ```
 
-Replace `<job-id>` with the ID returned when the job was submitted.
+Or:
 
----
+```bash
+make run-cli ARGS='get <job-id>'
+```
+
+Replace `<job-id>` with the ID returned by the submission command.
+
+The CLI connects to the server at `localhost:8080` in its current configuration.
+
+## Terminal UI
+
+GoQueue includes a full-screen terminal interface built with Bubble Tea and Lip Gloss.
+
+### Launch the TUI
+
+```bash
+make run-tui
+```
+
+Or:
+
+```bash
+./goqueue-tui
+```
+
+Start the GoQueue server first.
+
+### Available interactions
+
+| Key                    | Action                          |
+| ---------------------- | ------------------------------- |
+| `↑` / `↓` or `j` / `k` | Navigate the job list           |
+| `Enter`                | Open the selected job's details |
+| `s`                    | Open the job submission form    |
+| `r`                    | Refresh the current view's data |
+| `Esc`                  | Return or cancel                |
+| `q`                    | Quit                            |
+| `Ctrl+C`               | Exit the TUI                    |
+
+The dashboard refreshes automatically while displayed. Opening a job's details shows the most recently loaded job data; press `r` to request an updated list.
+
+The submission form supports the `uppercase` and `reverse` operations.
 
 ## Persistence and Recovery
 
-GoQueue uses JSON snapshots to preserve job state across graceful restarts.
+GoQueue uses JSON snapshots stored at `data/jobs.json`.
 
-### How it works
+### Startup
 
-1. The server loads previously saved jobs from `data/jobs.json` during startup.
-2. Jobs left in the `running` state are reset to `queued` for recovery.
-3. Workers process queued jobs.
-4. During graceful shutdown, the worker pool drains and the store saves a JSON snapshot.
+1. Load the saved snapshot, if present.
+2. Recover jobs that were left in the `running` state by resetting them to `queued`.
+3. Start the worker pool and HTTP server.
 
-### Persistence limitation
+### Shutdown
 
-Snapshots are written during graceful shutdown. A sudden crash or forced termination may cause changes made since the last snapshot to be lost.
+During graceful shutdown, GoQueue stops accepting new HTTP requests, stops the worker pool according to its shutdown behavior, and saves the current store as a JSON snapshot.
 
-This is snapshot-based persistence, not a transactional database or a write-ahead log.
+### Durability limitations
 
----
+Snapshot persistence is **not equivalent to a transactional database or a write-ahead log**.
+
+- Changes made after the last successful snapshot may be lost if the process crashes.
+- Recovery can requeue an interrupted job, but the application cannot guarantee exactly-once execution.
+- If a job's side effects occurred before a crash, re-execution may repeat those side effects.
+- The JSON snapshot is intended for this project's lightweight persistence requirements, not as a substitute for a production database.
 
 ## Docker
-
-GoQueue can be built and run as a Docker container.
 
 ### Build the image
 
@@ -271,56 +338,21 @@ GoQueue can be built and run as a Docker container.
 make docker-build
 ```
 
-Alternatively:
+Or:
 
 ```bash
 docker build -t goqueue .
 ```
 
-### Run the container
+### Run with persistent storage
+
+The Makefile's `docker-run` target mounts a named volume at `/app/data`:
 
 ```bash
 make docker-run
 ```
 
-Alternatively:
-
-```bash
-docker run -d \
-  --name goqueue \
-  -p 8080:8080 \
-  goqueue:latest
-```
-
-### Check container status
-
-```bash
-docker ps
-```
-
-### View logs
-
-```bash
-docker logs goqueue
-```
-
-### Test the API
-
-```bash
-curl -X POST http://localhost:8080/jobs \
-  -H "Content-Type: application/json" \
-  -d '{"type":"reverse","payload":"hello docker"}'
-```
-
-### Persistent storage with a named volume
-
-Create a Docker volume:
-
-```bash
-docker volume create goqueue-data
-```
-
-Run the container with the volume mounted:
+Equivalent command:
 
 ```bash
 docker run -d \
@@ -330,9 +362,24 @@ docker run -d \
   goqueue:latest
 ```
 
-The volume is mounted at `/app/data`, where GoQueue stores its JSON snapshot.
+The named volume retains snapshot files across container replacement.
 
-To recreate the container while retaining the volume:
+### Inspect the container
+
+```bash
+docker ps
+docker logs goqueue
+```
+
+### Test the containerized API
+
+```bash
+curl -X POST http://localhost:8080/jobs \
+  -H "Content-Type: application/json" \
+  -d '{"type":"reverse","payload":"hello docker"}'
+```
+
+### Recreate the container
 
 ```bash
 docker stop goqueue
@@ -345,88 +392,87 @@ docker run -d \
   goqueue:latest
 ```
 
-The named volume retains the snapshot across container replacement. The application must save a snapshot before the container is removed for the latest changes to be preserved.
-
----
+The volume survives container removal. However, retaining the volume does not automatically save in-memory changes: the application must successfully write its snapshot before those changes are durable.
 
 ## Development
 
-GoQueue includes a Makefile for common development tasks.
+### Make targets
 
-| Command                   | Description                        |
-| ------------------------- | ---------------------------------- |
-| `make build`              | Build the server and CLI binaries  |
-| `make test`               | Run all tests                      |
-| `make test-race`          | Run tests with the race detector   |
-| `make vet`                | Run `go vet`                       |
-| `make fmt`                | List Go files that need formatting |
-| `make run`                | Run the server                     |
-| `make run-cli ARGS='...'` | Run the CLI with arguments         |
-| `make docker-build`       | Build the Docker image             |
-| `make docker-run`         | Run the Docker container           |
-| `make clean`              | Remove generated binaries          |
+| Command                   | Description                           |
+| ------------------------- | ------------------------------------- |
+| `make build`              | Build the server, CLI, and TUI        |
+| `make test`               | Run all Go tests                      |
+| `make test-race`          | Run tests with the race detector      |
+| `make vet`                | Run `go vet`                          |
+| `make fmt`                | List files that need formatting       |
+| `make run`                | Start the server                      |
+| `make run-cli ARGS='...'` | Run the CLI                           |
+| `make run-tui`            | Launch the TUI                        |
+| `make docker-build`       | Build the Docker image                |
+| `make docker-run`         | Run the container with a named volume |
+| `make clean`              | Remove generated binaries             |
 
-### Testing
-
-Run the full test suite:
+### Run the test suite
 
 ```bash
 make test
 ```
 
-Run the race detector:
+### Check for concurrency issues
 
 ```bash
 make test-race
 ```
 
-Run static analysis:
+### Run static analysis
 
 ```bash
 make vet
 ```
 
-Check formatting:
+### Check formatting
 
 ```bash
 make fmt
 ```
 
-The formatting command lists files that need formatting. To format Go files, run:
+The `fmt` target reports files that need formatting; it does not modify them. To format Go files:
 
 ```bash
 gofmt -w .
 ```
 
----
+Before publishing changes, run:
+
+```bash
+make fmt
+make test
+make test-race
+make vet
+make build
+```
 
 ## Continuous Integration
 
-GoQueue uses **GitHub Actions** to automate checks on pushes and pull requests targeting the `main` branch.
+GoQueue uses GitHub Actions to automate quality checks on pushes and pull requests targeting `main`.
 
-The workflow is defined in `.github/workflows/ci.yml` and performs the following checks:
+The workflow in `.github/workflows/ci.yml` checks compilation, static analysis, tests with the race detector, and Go formatting.
 
-- **Build:** Verifies that the Go packages compile.
-- **Vet:** Runs `go vet` for static analysis.
-- **Tests:** Runs the test suite with the race detector enabled.
-- **Formatting:** Checks that Go files are formatted with `gofmt`.
-
-These checks help catch build errors, potential concurrency issues, and formatting problems before changes are merged.
-
----
+These checks help detect compilation errors, concurrency problems, and inconsistent formatting before changes are merged.
 
 ## Future Improvements
 
+Potential extensions include:
+
+- Configurable worker counts and queue capacity.
 - Retry policies and configurable job attempts.
-- Persistent queue storage with a write-ahead log.
-- Configurable worker pool size.
-- Job scheduling and delayed execution.
+- Write-ahead logging or database-backed persistence.
+- Delayed and scheduled jobs.
 - Metrics and observability with Prometheus and Grafana.
 - Docker Compose deployment.
 - Distributed job processing across multiple instances.
-
----
+- More job types and configurable execution handlers.
 
 ## License
 
-See the [LICENSE](LICENSE) file for license details.
+GoQueue is distributed under the MIT License. See [LICENSE](LICENSE) for details.
